@@ -1113,7 +1113,7 @@ export default function Home() {
     setCommercialBrief({
       productName: "", brandName: "", price: "", purchaseLink: "", features: "",
       reviewNotes: "", compareTarget: "", eventBenefit: "", campaignGoal: "판매 전환",
-      disclosure: "광고·협찬 콘텐츠"
+      disclosure: "광고·협찬 콘텐츠", productImageDataUrl: "", applyBrandStyle: true
     });
   }
 
