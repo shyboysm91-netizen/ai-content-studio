@@ -497,12 +497,30 @@ export default function Home() {
   const reelTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/ollama/status", { cache: "no-store" })
-      .then(async (response) => {
+    async function checkOllama() {
+      try {
+        const response = await fetch("/api/ollama/status", { cache: "no-store" });
         const data = await response.json().catch(() => null);
-        setStatus(response.ok && data?.ok ? "online" : "offline");
-      })
-      .catch(() => setStatus("offline"));
+        if (response.ok && data?.ok) {
+          setStatus("online");
+          return;
+        }
+      } catch {
+        // Vercel 서버가 로컬 Ollama에 접근할 수 없으면 브라우저에서 직접 확인합니다.
+      }
+
+      try {
+        const localResponse = await fetch("http://127.0.0.1:11434/api/tags", { cache: "no-store" });
+        const localData = await localResponse.json().catch(() => null);
+        const hasModel = Array.isArray(localData?.models)
+          && localData.models.some((item: { name?: string }) => String(item?.name || "").startsWith("gemma3:4b"));
+        setStatus(localResponse.ok && hasModel ? "online" : "offline");
+      } catch {
+        setStatus("offline");
+      }
+    }
+
+    void checkOllama();
 
     try {
       const raw = localStorage.getItem("ai-content-studio-project");
@@ -1166,14 +1184,62 @@ export default function Home() {
   }
 
   async function generateForTopic(targetTopic: string) {
+    const requestBody = { topic: targetTopic, category, mode, audience, commercialBrief };
     const response = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ topic: targetTopic, category, mode, audience, commercialBrief })
+      body: JSON.stringify(requestBody)
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "생성 실패");
-    return data as Generated;
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) return data as Generated;
+
+    // Production(Vercel)에서는 서버가 사용자의 PC localhost에 접근할 수 없으므로
+    // 같은 브라우저에서 실행 중인 Ollama를 직접 호출한 뒤 서버에서 결과를 정리합니다.
+    if (response.status >= 500) {
+      const prepareResponse = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...requestBody, action: "prepare" })
+      });
+      const prepared = await prepareResponse.json().catch(() => ({}));
+      if (!prepareResponse.ok || !prepared?.prompt) {
+        throw new Error(prepared?.error || data?.error || "AI 생성 준비에 실패했습니다.");
+      }
+
+      let localResponse: Response;
+      try {
+        localResponse = await fetch("http://127.0.0.1:11434/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: prepared.model || "gemma3:4b",
+            prompt: prepared.prompt,
+            stream: false,
+            format: "json",
+            keep_alive: "30m",
+            options: { temperature: 0.35, num_ctx: 4096, num_predict: 2600 }
+          })
+        });
+      } catch {
+        throw new Error("브라우저에서 Ollama에 연결하지 못했습니다. Ollama를 다시 실행한 뒤 새로고침하세요.");
+      }
+
+      const localData = await localResponse.json().catch(() => ({}));
+      if (!localResponse.ok || !localData?.response) {
+        throw new Error(localData?.error || "Ollama 생성 응답을 받지 못했습니다.");
+      }
+
+      const finalizeResponse = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...requestBody, action: "finalize", rawResponse: localData.response })
+      });
+      const finalized = await finalizeResponse.json().catch(() => ({}));
+      if (!finalizeResponse.ok) throw new Error(finalized?.error || "AI 결과 정리에 실패했습니다.");
+      return finalized as Generated;
+    }
+
+    throw new Error(data?.error || "생성 실패");
   }
 
   async function generate() {

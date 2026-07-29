@@ -154,8 +154,17 @@ export async function POST(request: NextRequest) {
 
   const prompt = buildPlannerPrompt({ topic, category, mode, audience, commercialBrief });
 
+  if (body.action === "prepare") {
+    return NextResponse.json({
+      prompt,
+      model: process.env.OLLAMA_MODEL || "gemma3:4b"
+    });
+  }
+
   try {
-    const result = await callOllama(prompt);
+    const result = body.action === "finalize"
+      ? extractJson(String(body.rawResponse || ""))
+      : await callOllama(prompt);
     const rawCards: RawCard[] = Array.isArray(result.cards) ? result.cards.slice(0, 8) : [];
 
     if (rawCards.length !== 8) {
