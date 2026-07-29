@@ -37,6 +37,7 @@ type ReelScenePlan = {
 
 type Generated = {
   caption: string;
+  platformText?: Partial<Record<PlatformKey, PlatformCopy>>;
   hashtags: string[];
   cards: Card[];
   quality?: {
@@ -1689,9 +1690,9 @@ export default function Home() {
       setGenerated((current) => ({
         ...current,
         platformText: {
-          ...current.platformText,
+          ...(current.platformText || {}),
           [selectedPlatform]: {
-            ...current.platformText[selectedPlatform],
+            ...(current.platformText?.[selectedPlatform] || platformCopies[selectedPlatform]),
             title: titleValue
           }
         }
