@@ -497,8 +497,11 @@ export default function Home() {
   const reelTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    fetch("/api/status")
-      .then((response) => setStatus(response.ok ? "online" : "offline"))
+    fetch("/api/ollama/status", { cache: "no-store" })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null);
+        setStatus(response.ok && data?.ok ? "online" : "offline");
+      })
       .catch(() => setStatus("offline"));
 
     try {

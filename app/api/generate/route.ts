@@ -129,6 +129,25 @@ export async function POST(request: NextRequest) {
   const audience = String(body.audience || "일반 성인");
   const commercialBrief = body.commercialBrief && typeof body.commercialBrief === "object" ? body.commercialBrief : {};
 
+  if (body.healthCheck === true) {
+    const base = (process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
+    try {
+      const response = await fetch(`${base}/api/tags`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(7000)
+      });
+      if (!response.ok) throw new Error("Ollama 응답 오류");
+      return NextResponse.json({ ok: true });
+    } catch {
+      return NextResponse.json(
+        { error: process.env.VERCEL && /127\.0\.0\.1|localhost/.test(base)
+          ? "Vercel에서는 PC의 localhost Ollama에 직접 연결할 수 없습니다."
+          : "Ollama 연결에 실패했습니다." },
+        { status: 503 }
+      );
+    }
+  }
+
   if (!topic) {
     return NextResponse.json({ error: "주제를 입력하세요." }, { status: 400 });
   }
