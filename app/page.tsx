@@ -2300,17 +2300,20 @@ export default function Home() {
 
   async function checkTelegram() {
     setTelegramStatus("unknown");
+    setMessage("텔레그램 봇과 승인 웹훅을 연결하고 있습니다.");
     try {
-      const response = await fetch("/api/telegram/status", { cache: "no-store" });
+      const response = await fetch("/api/telegram/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
       const data = await response.json();
-      setTelegramStatus(data.ready ? "ready" : "missing");
-      setMessage(data.ready
-        ? "텔레그램 연결 준비가 완료되었습니다."
-        : "텔레그램 환경변수가 아직 설정되지 않았습니다."
-      );
-    } catch {
-      setTelegramStatus("error");
-      setMessage("텔레그램 연결 상태를 확인하지 못했습니다.");
+      if (!response.ok || !data.ok) throw new Error(data.error || "텔레그램 연결에 실패했습니다.");
+      setTelegramStatus("ready");
+      setMessage(data.message || "텔레그램 연결이 완료되었습니다. 테스트 메시지를 확인하세요.");
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : "텔레그램 연결 상태를 확인하지 못했습니다.";
+      setTelegramStatus(messageText.includes("환경변수") || messageText.includes("설정") ? "missing" : "error");
+      setMessage(messageText);
     }
   }
 
