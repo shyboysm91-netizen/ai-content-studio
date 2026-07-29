@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteDraft, saveDrafts } from "../../../../lib/db";
-import type { ContentDraft } from "../../../../lib/types";
+import {
+  deleteTelegramDraft,
+  saveTelegramDraft,
+} from "../../../lib/telegramDraftStore";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function clean(value: unknown, max = 3500) {
   return String(value ?? "").trim().slice(0, max);
@@ -26,6 +29,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let draftId = "";
   try {
     const body = await request.json();
     const topic = clean(body.topic, 180);
@@ -37,9 +41,9 @@ export async function POST(request: NextRequest) {
     const totalCards = Number(body.totalCards || 0);
     const duration = Number(body.estimatedDurationSeconds || 0);
     const now = new Date();
-    const draftId = crypto.randomUUID();
+    draftId = crypto.randomUUID();
 
-    const draft: ContentDraft = {
+    await saveTelegramDraft({
       id: draftId,
       category: "health",
       topic: topic || title || "새 콘텐츠",
@@ -49,10 +53,8 @@ export async function POST(request: NextRequest) {
       hashtags: hashtags.split(/\s+/).filter(Boolean),
       scheduledDate: now.toISOString().slice(0, 10),
       scheduledTime: now.toTimeString().slice(0, 8),
-      status: "telegram_sent"
-    };
-
-    await saveDrafts([draft]);
+      status: "telegram_sent",
+    });
 
     const message = [
       "📱 <b>새 콘텐츠 승인 요청</b>",
@@ -71,8 +73,10 @@ export async function POST(request: NextRequest) {
       escapeHtml(hashtags),
       note ? `\n<b>메모</b>\n${escapeHtml(note)}` : "",
       "",
-      "아래 버튼으로 승인하거나 취소하세요."
-    ].filter(Boolean).join("\n");
+      "아래 버튼으로 승인하거나 취소하세요.",
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
@@ -83,18 +87,20 @@ export async function POST(request: NextRequest) {
         parse_mode: "HTML",
         disable_web_page_preview: true,
         reply_markup: {
-          inline_keyboard: [[
-            { text: "✅ 승인", callback_data: `publish:${draftId}` },
-            { text: "❌ 취소", callback_data: `cancel:${draftId}` }
-          ]]
-        }
+          inline_keyboard: [
+            [
+              { text: "✅ 승인", callback_data: `publish:${draftId}` },
+              { text: "❌ 취소", callback_data: `cancel:${draftId}` },
+            ],
+          ],
+        },
       }),
-      cache: "no-store"
+      cache: "no-store",
     });
 
     const result = await response.json();
     if (!response.ok || !result.ok) {
-      await deleteDraft(draftId);
+      await deleteTelegramDraft(draftId);
       return NextResponse.json(
         { error: result.description || "텔레그램 API 전송에 실패했습니다." },
         { status: 502 }
@@ -104,9 +110,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       draftId,
-      messageId: result.result?.message_id
+      messageId: result.result?.message_id,
     });
   } catch (error) {
+    if (draftId) await deleteTelegramDraft(draftId);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "전송 중 오류가 발생했습니다." },
       { status: 500 }

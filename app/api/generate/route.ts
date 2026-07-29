@@ -57,8 +57,8 @@ async function callOllama(prompt: string) {
         keep_alive: "30m",
         options: {
           temperature: 0.35,
-          num_ctx: 4096,
-          num_predict: 2600
+          num_ctx: 3072,
+          num_predict: 1800
         }
       })
     });
@@ -99,8 +99,7 @@ function hasNaturalBridge(text: string) {
 
 function normalizeCard(card: RawCard, index: number) {
   const fallbackTypes: CardType[] = [
-    "hook", "reason", "food", "comparison",
-    "howto", "recipe", "warning", "closing"
+    "hook", "reason", "food", "comparison", "recipe", "closing"
   ];
   const type = ALLOWED_TYPES.includes(card.type as CardType)
     ? (card.type as CardType)
@@ -115,7 +114,7 @@ function normalizeCard(card: RawCard, index: number) {
     cautionItems: cleanList(card.cautionItems, 4),
     recipeSteps: cleanList(card.recipeSteps, 4),
     imageKeyword: String(card.imageKeyword || "checklist").trim(),
-    badge: String(card.badge || (index === 0 ? "꼭 확인하세요" : `${index + 1}/8`)).trim(),
+    badge: String(card.badge || (index === 0 ? "꼭 확인하세요" : `${index + 1}/6`)).trim(),
     sourceNote: String(card.sourceNote || "일반적인 건강·영양 정보 요약").trim(),
     imageSearchQuery: String(card.imageSearchQuery || card.imageKeyword || "healthy lifestyle").trim()
   };
@@ -165,10 +164,10 @@ export async function POST(request: NextRequest) {
     const result = body.action === "finalize"
       ? extractJson(String(body.rawResponse || ""))
       : await callOllama(prompt);
-    const rawCards: RawCard[] = Array.isArray(result.cards) ? result.cards.slice(0, 8) : [];
+    const rawCards: RawCard[] = Array.isArray(result.cards) ? result.cards.slice(0, 6) : [];
 
-    if (rawCards.length !== 8) {
-      throw new Error("AI가 8장의 카드를 완성하지 못했습니다. 다시 생성하세요.");
+    if (rawCards.length !== 6) {
+      throw new Error("AI가 6장의 카드를 완성하지 못했습니다. 다시 생성하세요.");
     }
 
     const cards = rawCards.map(normalizeCard);
@@ -196,7 +195,7 @@ export async function POST(request: NextRequest) {
     ).length;
     const duplicateTitles =
       cards.length - new Set(cards.map(c => c.title.replace(/\s/g, ""))).size;
-    const bridgeCards = cards.slice(0, 7).filter(c => hasNaturalBridge(c.body)).length;
+    const bridgeCards = cards.slice(0, 5).filter(c => hasNaturalBridge(c.body)).length;
     const conciseCards = cards.filter(c => c.body.length > 0 && c.body.length <= 150).length;
     const score = Math.max(
       70,
@@ -230,7 +229,7 @@ export async function POST(request: NextRequest) {
         },
         improvements: [
           ...(bridgeCards < 4 ? ["카드 끝의 다음 장 연결 문장을 조금 더 강화하세요."] : []),
-          ...(conciseCards < 6 ? ["본문이 긴 카드는 핵심 두 문장으로 줄이는 것이 좋습니다."] : []),
+          ...(conciseCards < 5 ? ["본문이 긴 카드는 핵심 두 문장으로 줄이는 것이 좋습니다."] : []),
           ...(duplicateTitles > 0 ? ["비슷한 카드 제목을 서로 다른 질문으로 바꾸세요."] : []),
           ...(riskyCount > 0 ? ["과장되거나 단정적인 건강 표현을 완화하세요."] : []),
           ...(score >= 88 ? ["바로 캐러셀 패키지로 제작해도 좋은 수준입니다."] : [])
@@ -241,7 +240,7 @@ export async function POST(request: NextRequest) {
         intent: String(result?.planner?.intent || "정보 탐색"),
         questions: cleanList(result?.planner?.questions, 5),
         hook: String(result?.planner?.hook || cards[0]?.title || topic),
-        story: cleanList(result?.planner?.story, 8),
+        story: cleanList(result?.planner?.story, 6),
         contentKind: String(result?.planner?.contentKind || ""),
         coreQuestion: String(result?.planner?.coreQuestion || result?.planner?.questions?.[0] || ""),
         keyFacts: cleanList(result?.planner?.keyFacts, 4)

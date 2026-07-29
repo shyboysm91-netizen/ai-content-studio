@@ -1,21 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDraft } from "../../../../lib/db";
+import { getTelegramDraft } from "../../../lib/telegramDraftStore";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const id = request.nextUrl.searchParams.get("id")?.trim();
   if (!id) return NextResponse.json({ error: "id가 필요합니다." }, { status: 400 });
 
   try {
-    const draft = await getDraft(id);
-    if (!draft) return NextResponse.json({ error: "승인 요청을 찾을 수 없습니다." }, { status: 404 });
-
+    const draft = await getTelegramDraft(id);
+    if (!draft) {
+      return NextResponse.json({ error: "승인 요청을 찾을 수 없습니다." }, { status: 404 });
+    }
     if (draft.status === "published") {
-      return NextResponse.json({ status: "approved", message: "텔레그램 승인 완료 · 업로드 대기열 이동 가능" });
+      return NextResponse.json({
+        status: "approved",
+        message: "텔레그램 승인 완료 · 업로드 대기열 이동 가능",
+      });
     }
     if (draft.status === "cancelled") {
-      return NextResponse.json({ status: "rejected", message: "텔레그램에서 승인 요청 취소" });
+      return NextResponse.json({
+        status: "rejected",
+        message: "텔레그램에서 승인 요청 취소",
+      });
     }
     return NextResponse.json({ status: "pending", message: "텔레그램 응답 대기 중" });
   } catch (error) {

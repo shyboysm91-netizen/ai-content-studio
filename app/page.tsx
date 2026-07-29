@@ -1216,8 +1216,8 @@ export default function Home() {
             prompt: prepared.prompt,
             stream: false,
             format: "json",
-            keep_alive: "30m",
-            options: { temperature: 0.35, num_ctx: 4096, num_predict: 2600 }
+            keep_alive: "5m",
+            options: { temperature: 0.35, num_ctx: 3072, num_predict: 1800 }
           })
         });
       } catch {
@@ -1281,8 +1281,8 @@ export default function Home() {
   async function downloadZip() {
     if (packagingCarousel) return;
 
-    if (generated.cards.length !== 8) {
-      setMessage(`인스타 캐러셀 패키지는 카드 8장이 필요합니다. 현재 ${generated.cards.length}장입니다.`);
+    if (generated.cards.length !== 6) {
+      setMessage(`인스타 캐러셀 패키지는 카드 6장이 필요합니다. 현재 ${generated.cards.length}장입니다.`);
       return;
     }
 
@@ -1292,9 +1292,9 @@ export default function Home() {
     try {
       const zip = new JSZip();
 
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 6; i++) {
         currentCard = i + 1;
-        setMessage(`인스타 캐러셀 패키지 생성 중... ${currentCard}/8`);
+        setMessage(`인스타 캐러셀 패키지 생성 중... ${currentCard}/6`);
         const dataUrl = await cardPng(i);
         const base64 = dataUrl.split(",")[1];
         if (!base64) throw new Error(`${currentCard}번 카드 이미지 변환 실패`);
@@ -1317,7 +1317,7 @@ export default function Home() {
       setMessage("인스타 캐러셀 패키지 생성 완료");
     } catch (error) {
       const detail = error instanceof Error ? error.message : "알 수 없는 오류";
-      const cardInfo = currentCard > 0 && currentCard <= 8 ? ` (${currentCard}번 카드 확인)` : "";
+      const cardInfo = currentCard > 0 && currentCard <= 6 ? ` (${currentCard}번 카드 확인)` : "";
       setMessage(`인스타 캐러셀 패키지 생성 실패${cardInfo}: ${detail}`);
     } finally {
       setPackagingCarousel(false);
@@ -1327,8 +1327,8 @@ export default function Home() {
 
   async function downloadCompletePackage() {
     if (packagingComplete || packagingCarousel) return;
-    if (generated.cards.length !== 8) {
-      setMessage(`원클릭 패키지는 카드 8장이 필요합니다. 현재 ${generated.cards.length}장입니다.`);
+    if (generated.cards.length !== 6) {
+      setMessage(`원클릭 패키지는 카드 6장이 필요합니다. 현재 ${generated.cards.length}장입니다.`);
       return;
     }
 
@@ -1341,9 +1341,9 @@ export default function Home() {
       const projectFolder = zip.folder("03_project_info");
       if (!instagramFolder || !reelsFolder || !projectFolder) throw new Error("ZIP 폴더 생성 실패");
 
-      for (let i = 0; i < 8; i += 1) {
+      for (let i = 0; i < 6; i += 1) {
         currentCard = i + 1;
-        setMessage(`원클릭 패키지 생성 중... 캐러셀 ${currentCard}/8`);
+        setMessage(`원클릭 패키지 생성 중... 캐러셀 ${currentCard}/6`);
         const dataUrl = await cardPng(i);
         const base64 = dataUrl.split(",")[1];
         if (!base64) throw new Error(`${currentCard}번 카드 이미지 변환 실패`);
@@ -1371,7 +1371,7 @@ export default function Home() {
       projectFolder.file("README.txt", [
         "AI Content Studio V38 원클릭 콘텐츠 패키지",
         "",
-        "01_instagram_carousel: 인스타그램 4:5 캐러셀 이미지 8장, 캡션, 해시태그",
+        "01_instagram_carousel: 인스타그램 4:5 캐러셀 이미지 6장, 캡션, 해시태그",
         "02_reels: 9:16 릴스 스토리보드, 캡션, 해시태그, 생성된 경우 WebM 영상",
         "03_project_info: 콘텐츠 원본 JSON",
         "",
@@ -1392,7 +1392,7 @@ export default function Home() {
       setMessage(lastVideoBlob ? "원클릭 콘텐츠 패키지 생성 완료 · 릴스 영상 포함" : "원클릭 콘텐츠 패키지 생성 완료 · 릴스 스토리보드 포함");
     } catch (error) {
       const detail = error instanceof Error ? error.message : "알 수 없는 오류";
-      const cardInfo = currentCard > 0 && currentCard <= 8 ? ` (${currentCard}번 카드 확인)` : "";
+      const cardInfo = currentCard > 0 && currentCard <= 6 ? ` (${currentCard}번 카드 확인)` : "";
       setMessage(`원클릭 패키지 생성 실패${cardInfo}: ${detail}`);
     } finally {
       setPackagingComplete(false);
@@ -3609,7 +3609,7 @@ export default function Home() {
               </div>
             </div>
             <div className="plannerBlock">
-              <b>8장 스토리 흐름</b>
+              <b>6장 스토리 흐름</b>
               <div className="storyFlow">
                 {(Array.isArray(generated.planSummary.story) ? generated.planSummary.story : []).map((step, i) => <span key={i}><em>{i + 1}</em>{step}</span>)}
               </div>
@@ -3696,7 +3696,7 @@ export default function Home() {
             <div>
               <span className="reelStoryboardBadge">V36 AI STORYBOARD</span>
               <h3>릴스 장면·자막·나레이션 자동 설계</h3>
-              <p>카드 8장을 짧은 장면으로 재구성해 시청자가 중간에 이탈하지 않도록 연결합니다.</p>
+              <p>카드 6장을 짧은 장면으로 재구성해 시청자가 중간에 이탈하지 않도록 연결합니다.</p>
             </div>
             <label>
               영상 구성

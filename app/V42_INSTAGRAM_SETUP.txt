@@ -1,0 +1,13 @@
+V42 Instagram 연결 확인 환경변수
+
+필수
+1. INSTAGRAM_ACCESS_TOKEN
+2. INSTAGRAM_BUSINESS_ACCOUNT_ID
+
+선택
+3. META_GRAPH_VERSION=v25.0
+
+기존 이름을 쓰는 경우 META_ACCESS_TOKEN, INSTAGRAM_USER_ID도 자동 인식합니다.
+
+Vercel 환경변수 저장 후 Production 재배포 → 사이트 4. 관리·통계 → 플랫폼 연결 상태 확인 버튼을 누르세요.
+실제 인스타그램 사용자명까지 표시되면 계정 연결 성공입니다.

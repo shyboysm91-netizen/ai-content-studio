@@ -10,7 +10,7 @@ const defaultTimes = ['08:00', '11:00', '14:00', '17:00', '20:00'];
 async function createWithAi(category: Category, topic: string, scheduledTime: string): Promise<ContentDraft> {
   if (!process.env.OPENAI_API_KEY) return makeMockDraft(category, topic, scheduledTime);
 
-  const prompt = `한국어 인스타그램 카드뉴스를 작성해줘.\n카테고리: ${category === 'health' ? '일반 건강' : '임산부'}\n주제: ${topic}\n조건: 정확하고 이해하기 쉽게 작성, 8장, 과장·공포 유도·진단·치료 단정 금지, 각 카드 본문은 80자 이내. 임산부 내용에는 위험 신호와 의료진 상담 안내를 포함. 마지막 장은 저장과 팔로우 유도.\n반드시 JSON만 출력: {"title":"","cards":[{"title":"","body":""}],"caption":"","hashtags":[""]}`;
+  const prompt = `한국어 인스타그램 카드뉴스를 작성해줘.\n카테고리: ${category === 'health' ? '일반 건강' : '임산부'}\n주제: ${topic}\n조건: 정확하고 이해하기 쉽게 작성, 6장, 과장·공포 유도·진단·치료 단정 금지, 각 카드 본문은 80자 이내. 임산부 내용에는 위험 신호와 의료진 상담 안내를 포함. 마지막 장은 저장과 팔로우 유도.\n반드시 JSON만 출력: {"title":"","cards":[{"title":"","body":""}],"caption":"","hashtags":[""]}`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/responses', {
@@ -21,7 +21,7 @@ async function createWithAi(category: Category, topic: string, scheduledTime: st
     if (!response.ok) return makeMockDraft(category, topic, scheduledTime);
     const result = await response.json();
     const parsed = JSON.parse(result.output_text || '{}');
-    if (!parsed.title || !Array.isArray(parsed.cards) || parsed.cards.length !== 8) return makeMockDraft(category, topic, scheduledTime);
+    if (!parsed.title || !Array.isArray(parsed.cards) || parsed.cards.length !== 6) return makeMockDraft(category, topic, scheduledTime);
     return {
       id: crypto.randomUUID(), category, topic, title: parsed.title,
       cards: parsed.cards, caption: parsed.caption || '', hashtags: parsed.hashtags || [],
