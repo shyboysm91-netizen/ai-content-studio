@@ -1217,7 +1217,7 @@ export default function Home() {
             stream: false,
             format: "json",
             keep_alive: "5m",
-            options: { temperature: 0.35, num_ctx: 3072, num_predict: 1800 }
+            options: { temperature: 0.25, num_ctx: 1536, num_predict: 620, num_batch: 32 }
           })
         });
       } catch {
@@ -1248,7 +1248,7 @@ export default function Home() {
       return setMessage("제품명 또는 서비스명을 입력하세요.");
     }
     setLoading(true);
-    setMessage(isCommercialMode ? "제품 정보를 바탕으로 광고 스토리를 기획하고 있습니다." : "AI가 먼저 기획한 뒤 캐러셀을 작성하고 있습니다.");
+    setMessage(isCommercialMode ? "제품 정보를 바탕으로 6장 콘텐츠를 생성하고 있습니다." : "6장 카드와 캡션을 가볍게 나누어 생성하고 있습니다.");
     try {
       const data = await generateForTopic(topic);
       setGenerated(data);
