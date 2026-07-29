@@ -22,6 +22,7 @@ export function buildPlannerPrompt(input: {
 }) {
   const { topic, category, mode, audience, commercialBrief = {} } = input;
   const commercialMode = ["product", "review", "compare", "event"].includes(mode);
+  const foodFocused = /(음식|식단|메뉴|반찬|간식|레시피|브로콜리|키위|샐러드|철분|변비|다이어트|영양|임산부)/.test(`${topic} ${category} ${mode}`);
   const modeGuide = mode === "product"
     ? "문제 제기 → 필요성 → 검증된 특징 → 사용 방법 → 추천 대상 → 구매 안내 순서의 제품 소개형"
     : mode === "review"
@@ -31,6 +32,19 @@ export function buildPlannerPrompt(input: {
         : mode === "event"
           ? "혜택 → 기간 → 참여 방법 → 조건과 유의사항 → 행동 유도의 이벤트형"
           : "정보 제공형";
+  const foodContext = foodFocused ? `
+음식·식단 콘텐츠 특별 규칙:
+- 단순히 “브로콜리를 먹으세요”, “키위를 드세요”, “샐러드를 추천합니다”처럼 식재료 이름만 나열하지 않습니다.
+- 독자가 실제로 맛있게 만들어 먹고 싶도록 완성된 메뉴명과 조리 아이디어를 우선합니다.
+- 건강식이라는 이유로 맛없는 생채소·무가당 샐러드만 반복 추천하지 않습니다.
+- 메뉴는 한국에서 쉽게 구할 수 있는 재료로 만들고, 현실적인 한 끼·반찬·간식 형태로 제안합니다.
+- 예: 브로콜리 치즈구이, 소고기 시금치 덮밥, 골드키위 그릭요거트볼, 연어 아보카도 덮밥, 두부 계란찜, 새우 토마토 파스타처럼 구체적으로 씁니다.
+- 맛을 살리는 요소(치즈, 참깨, 들깨, 달걀, 소고기, 요거트, 견과류, 간장·레몬·올리브유 소량 등)를 적절히 활용하되 건강 주제와 대상 독자에 맞춥니다.
+- recipe 카드에는 메뉴명, 준비 재료 3~6개, 예상 조리시간, 3단계 이상의 실제 조리법을 넣습니다.
+- food 카드에는 식재료 효능 설명보다 “어떤 맛있는 메뉴로 먹을지”를 먼저 보여줍니다.
+- 임산부·건강 대상이면 덜 익힌 달걀·고기·생선, 비살균 유제품, 과도한 당·나트륨 등 대상별 주의점을 자연스럽게 반영합니다.
+- 특정 식품 하나가 증상을 치료한다고 단정하지 않습니다.
+` : "";
   const commercialContext = commercialMode ? `
 광고 콘텐츠 필수 정보:
 - 제품·서비스명: ${commercialBrief.productName || "미입력"}
@@ -53,6 +67,7 @@ export function buildPlannerPrompt(input: {
 콘텐츠 모드: ${mode} (${modeGuide})
 사용자가 지정한 대상 독자: ${audience}
 ${commercialContext}
+${foodContext}
 
 1단계 AI PLANNER
 - 실제로 이 주제를 궁금해할 핵심 타겟을 한 문장으로 정합니다.
@@ -74,10 +89,10 @@ ${commercialContext}
 카드별 역할:
 - 1장 hook: 대상과 얻을 이익이 분명한 제목 + “무엇이 달라지는지” 예고
 - 2장 reason: 독자가 가장 궁금해하는 질문을 먼저 제시하고 짧게 답변
-- 3장 food: 첫 번째 핵심 정보와 구체적인 예시
+- 3장 food: 첫 번째 핵심 정보와 구체적인 완성 메뉴 예시. 음식 주제라면 식재료 나열 대신 맛있는 메뉴명과 먹는 장면을 제시
 - 4장 comparison: 헷갈리는 두 선택이나 좋은 경우/주의할 경우 비교
 - 5장 howto: 오늘 바로 할 수 있는 행동을 1·2·3 단계로 제시
-- 6장 recipe: 실제 적용 예시, 조합 또는 순서를 구체적으로 제시
+- 6장 recipe: 실제 적용 가능한 맛있는 메뉴 1개를 정하고 재료·조리시간·3단계 이상의 조리법을 구체적으로 제시
 - 7장 warning: 꼭 구분해야 할 주의 신호와 상담이 필요한 상황
 - 8장 closing: 핵심 3가지를 요약하고 저장·공유를 자연스럽게 유도
 
@@ -112,7 +127,8 @@ ${commercialContext}
 - 확실하지 않은 수치와 연구 결과를 만들지 않습니다.
 - 개인차와 의료진 상담이 필요한 상황을 자연스럽게 포함합니다.
 - comparison은 goodItems와 cautionItems를 각각 2개 이상 작성합니다.
-- recipe는 recipeSteps를 3개 이상 작성합니다.
+- recipe는 recipeSteps를 3개 이상 작성하고, details에 재료와 조리시간을 포함합니다.
+- 음식 주제의 카드 제목에는 가능하면 완성된 메뉴명을 사용하고 “채소 섭취”, “건강 샐러드” 같은 추상적인 제목을 피합니다.
 - imageKeyword는 다음 중 하나만 사용합니다:
 pregnant, water, food, walk, sleep, doctor, medicine, warning, heart, checklist,
 baby, fruit, exercise, hospital, calendar, broccoli, kiwi, meal, recipe, compare,
