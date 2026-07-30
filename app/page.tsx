@@ -1215,9 +1215,8 @@ export default function Home() {
             model: prepared.model || "gemma3:4b",
             prompt: prepared.prompt,
             stream: false,
-            format: "json",
             keep_alive: "30m",
-            options: { temperature: 0.25, num_ctx: 1536, num_predict: 720, num_batch: 16, top_k: 20, top_p: 0.85 }
+            options: { temperature: 0.25, num_ctx: 1536, num_predict: 620, num_batch: 16, top_k: 20, top_p: 0.85 }
           })
         });
       } catch {
@@ -3590,7 +3589,7 @@ export default function Home() {
         </label>
 
         <button className="generate" onClick={generate} disabled={loading}>
-          {loading ? "AI가 6장 콘텐츠를 생성하는 중입니다..." : isCommercialMode ? "광고 콘텐츠 자동 생성" : "AI 콘텐츠 자동 생성"}
+          {loading ? "AI가 6장 글을 빠르게 작성하는 중입니다..." : isCommercialMode ? "광고 콘텐츠 자동 생성" : "AI 콘텐츠 자동 생성"}
         </button>
         {message && <p className="message">{message}</p>}
       </section>

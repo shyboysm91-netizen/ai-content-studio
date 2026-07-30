@@ -16,16 +16,8 @@ type RawCard = {
   imageSearchQuery?: string;
 };
 
-type CompactResult = {
-  c?: unknown[];
-  g?: string[];
-  w?: string[];
-  caption?: string;
-  tags?: string[];
-};
-
 const CARD_TYPES: CardType[] = ["hook", "reason", "food", "howto", "warning", "closing"];
-const IMAGE_KEYWORDS = ["heart", "doctor", "food", "checklist", "warning", "heart"];
+const IMAGE_KEYWORDS = ["heart", "doctor", "body", "checklist", "warning", "heart"];
 const BADGES = ["꼭 알아두세요", "왜 중요할까요?", "몸에서 일어나는 변화", "오늘부터 실천", "자주 하는 실수", "오늘의 핵심"];
 
 type CacheEntry = { expiresAt: number; value: unknown };
@@ -56,19 +48,11 @@ function setCached(key: string, value: unknown) {
   }
 }
 
-function extractJson(text: string) {
-  const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start < 0 || end < 0) throw new Error("AI 응답에서 JSON을 찾지 못했습니다.");
-  return JSON.parse(cleaned.slice(start, end + 1));
-}
-
 async function callOllama(prompt: string) {
   const base = (process.env.OLLAMA_BASE_URL || "http://127.0.0.1:11434").replace(/\/$/, "");
   const model = process.env.OLLAMA_MODEL || "gemma3:4b";
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 75_000);
+  const timeout = setTimeout(() => controller.abort(), 70_000);
 
   try {
     const response = await fetch(`${base}/api/generate`, {
@@ -79,15 +63,14 @@ async function callOllama(prompt: string) {
         model,
         prompt,
         stream: false,
-        format: "json",
         keep_alive: "30m",
         options: {
-          temperature: 0.28,
+          temperature: 0.25,
           num_ctx: 1536,
-          num_predict: 720,
+          num_predict: 620,
           num_batch: 16,
           top_k: 20,
-          top_p: 0.86,
+          top_p: 0.85,
           repeat_penalty: 1.1
         }
       })
@@ -97,10 +80,12 @@ async function callOllama(prompt: string) {
       throw new Error(detail || "Ollama 호출에 실패했습니다.");
     }
     const data = await response.json();
-    return extractJson(String(data.response || ""));
+    const text = String(data.response || "").trim();
+    if (!text) throw new Error("AI가 빈 응답을 보냈습니다.");
+    return text;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("AI 생성이 75초를 넘겼습니다. Ollama를 재시작한 뒤 다시 시도하세요.");
+      throw new Error("AI 생성이 70초를 넘겼습니다. Ollama를 재시작한 뒤 다시 시도하세요.");
     }
     if (error instanceof TypeError) {
       throw new Error("Ollama 연결에 실패했습니다. Ollama 앱과 localhost:11434를 확인하세요.");
@@ -128,37 +113,98 @@ function normalizeBody(value: unknown) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
 
-function expandCompact(result: CompactResult) {
-  const rows = Array.isArray(result.c) ? result.c.slice(0, 6) : [];
-  const cards: RawCard[] = rows.map((item, index) => {
-    const row = Array.isArray(item) ? item : [];
-    const details = cleanList(row[2], 4);
-    return {
-      type: CARD_TYPES[index],
-      title: String(row[0] || ""),
-      body: String(row[1] || ""),
-      details,
-      goodItems: index === 3 ? cleanList(result.g, 4) : [],
-      cautionItems: index === 4 ? cleanList(result.w, 4) : [],
-      recipeSteps: [],
-      imageKeyword: String(row[3] || IMAGE_KEYWORDS[index]),
-      badge: BADGES[index],
-      sourceNote: "일반적인 건강·생활 정보이며 개인 진료를 대신하지 않음",
-      imageSearchQuery: String(row[3] || IMAGE_KEYWORDS[index])
-    };
-  });
+function valueAfterLabel(block: string, labels: string[]) {
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = block.match(new RegExp(`(?:^|\\n)\\s*${escaped}\\s*[:：]\\s*([^\\n]+)`, "i"));
+    if (match?.[1]) return match[1].trim();
+  }
+  return "";
+}
+
+function listAfterLabel(block: string, labels: string[]) {
+  const raw = valueAfterLabel(block, labels);
+  if (!raw) return [];
+  return raw
+    .split(/\s*(?:\||·|•|,|\/|;|→)\s*/)
+    .map(v => v.replace(/^[-*\d.)\s]+/, "").trim())
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+function parsePlainText(text: string) {
+  const normalized = text.replace(/\r/g, "").replace(/```[a-z]*/gi, "").replace(/```/g, "").trim();
+  const marker = /\[?\s*(?:CARD|카드)\s*([1-6])\s*\]?\s*[:：-]?/gi;
+  const matches = [...normalized.matchAll(marker)];
+  const cards: RawCard[] = [];
+
+  for (let i = 0; i < 6; i += 1) {
+    const found = matches.find(m => Number(m[1]) === i + 1);
+    if (!found || found.index === undefined) continue;
+    const next = matches.find(m => m.index !== undefined && m.index > found.index!);
+    const start = found.index + found[0].length;
+    const end = next?.index ?? normalized.length;
+    const block = normalized.slice(start, end).trim();
+    const title = valueAfterLabel(block, ["TITLE", "제목"]);
+    const body = valueAfterLabel(block, ["BODY", "본문", "내용"]);
+    const details = listAfterLabel(block, ["POINTS", "POINT", "핵심", "포인트", "실천", "주의"]);
+    if (title || body) {
+      cards.push({
+        type: CARD_TYPES[i],
+        title,
+        body,
+        details,
+        goodItems: [],
+        cautionItems: [],
+        recipeSteps: [],
+        imageKeyword: IMAGE_KEYWORDS[i],
+        badge: BADGES[i],
+        sourceNote: "일반적인 건강·생활 정보이며 개인 진료를 대신하지 않음",
+        imageSearchQuery: IMAGE_KEYWORDS[i]
+      });
+    }
+  }
+
+  // 모델이 카드 마커를 조금 틀려도 제목/본문 쌍 6개를 복구합니다.
+  if (cards.length < 6) {
+    const titleMatches = [...normalized.matchAll(/(?:^|\n)\s*(?:TITLE|제목)\s*[:：]\s*([^\n]+)/gi)];
+    const bodyMatches = [...normalized.matchAll(/(?:^|\n)\s*(?:BODY|본문|내용)\s*[:：]\s*([^\n]+)/gi)];
+    if (titleMatches.length >= 6 && bodyMatches.length >= 6) {
+      cards.length = 0;
+      for (let i = 0; i < 6; i += 1) {
+        cards.push({
+          type: CARD_TYPES[i],
+          title: titleMatches[i]?.[1]?.trim() || `카드 ${i + 1}`,
+          body: bodyMatches[i]?.[1]?.trim() || "",
+          details: [],
+          goodItems: [],
+          cautionItems: [],
+          recipeSteps: [],
+          imageKeyword: IMAGE_KEYWORDS[i],
+          badge: BADGES[i],
+          sourceNote: "일반적인 건강·생활 정보이며 개인 진료를 대신하지 않음",
+          imageSearchQuery: IMAGE_KEYWORDS[i]
+        });
+      }
+    }
+  }
+
+  const captionMatch = normalized.match(/\[?\s*(?:CAPTION|캡션)\s*\]?\s*[:：]?\s*([\s\S]*?)(?=\n\s*\[?\s*(?:HASHTAGS?|해시태그)\b|$)/i);
+  const hashtagMatch = normalized.match(/\[?\s*(?:HASHTAGS?|해시태그)\s*\]?\s*[:：]?\s*([^\n]+)/i);
+  const hashtags = hashtagMatch?.[1]
+    ? hashtagMatch[1].split(/[\s,]+/).map(v => v.trim()).filter(v => v.startsWith("#")).slice(0, 12)
+    : [];
 
   return {
-    cards,
-    caption: result.caption || "",
-    hashtags: result.tags || []
+    cards: cards.slice(0, 6),
+    caption: captionMatch?.[1]?.trim() || "",
+    hashtags
   };
 }
 
 function normalizeCard(card: RawCard, index: number) {
-  const type = CARD_TYPES[index] || "closing";
   return {
-    type,
+    type: CARD_TYPES[index] || "closing",
     title: trimCardTitle(String(card.title || `카드 ${index + 1}`)),
     body: normalizeBody(card.body),
     details: cleanList(card.details, 4),
@@ -209,62 +255,46 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const raw = body.action === "finalize"
-      ? extractJson(String(body.rawResponse || ""))
-      : await callOllama(prompt);
-    const result = expandCompact(raw as CompactResult);
-    const rawCards: RawCard[] = Array.isArray(result.cards) ? result.cards.slice(0, 6) : [];
+    const text = body.action === "finalize" ? String(body.rawResponse || "") : await callOllama(prompt);
+    const result = parsePlainText(text);
+    const rawCards = result.cards;
 
     if (rawCards.length !== 6) {
-      throw new Error("AI가 6장의 카드를 완성하지 못했습니다. 다시 생성하세요.");
+      throw new Error(`AI 카드 형식을 읽지 못했습니다. 생성된 카드 ${rawCards.length}/6장입니다. 다시 시도하세요.`);
     }
 
     const cards = rawCards.map(normalizeCard);
+    if (cards[3].details.length < 2) cards[3].details = ["오늘 바로 할 수 있는 행동 하나를 정하세요.", "한 번에 바꾸기보다 꾸준히 반복하세요."];
+    if (cards[4].details.length < 2) cards[4].details = ["좋다고 알려진 방법도 과하게 적용하지 마세요.", "증상이 지속되면 전문가와 상담하세요."];
+    if (cards[5].details.length < 2) cards[5].details = [cards[1].title, cards[3].title, cards[4].title].filter(Boolean).slice(0, 3);
 
-    if (cards[3].details.length < 2) {
-      cards[3].details = ["오늘 바로 할 수 있는 행동 하나를 정하세요.", "한 번에 바꾸기보다 꾸준히 반복하세요."];
-    }
-    if (cards[4].details.length < 2) {
-      cards[4].details = ["좋다고 알려진 방법도 과하게 적용하지 마세요.", "증상이 지속되면 혼자 판단하지 말고 전문가와 상담하세요."];
-    }
-    if (cards[5].details.length < 2) {
-      cards[5].details = [cards[1].title, cards[3].title, cards[4].title].filter(Boolean).slice(0, 3);
-    }
-
-    const allText = cards
-      .map(c => [c.title, c.body, ...c.details, ...c.goodItems, ...c.cautionItems].join(" "))
-      .join(" ");
+    const allText = cards.map(c => [c.title, c.body, ...c.details].join(" ")).join(" ");
     const riskyWords = ["완치", "치료됩니다", "무조건", "100%", "해독", "기적", "즉시 낫"];
     const riskyCount = riskyWords.filter(word => allText.includes(word)).length;
-    const concreteCards = cards.filter(c => c.details.length >= 2 || c.body.length >= 70).length;
+    const concreteCards = cards.filter(c => c.details.length >= 2 || c.body.length >= 55).length;
     const duplicateTitles = cards.length - new Set(cards.map(c => c.title.replace(/\s/g, ""))).size;
     const bridgeCards = cards.slice(0, 5).filter(c => hasNaturalBridge(c.body)).length;
-    const readableCards = cards.filter(c => c.body.length >= 55 && c.body.length <= 220).length;
-    const score = Math.max(70, Math.min(98,
-      78 + concreteCards * 2 + Math.min(bridgeCards, 4) + Math.floor(readableCards / 2)
-      - riskyCount * 8 - duplicateTitles * 4
-    ));
+    const readableCards = cards.filter(c => c.body.length >= 45 && c.body.length <= 220).length;
+    const score = Math.max(70, Math.min(98, 78 + concreteCards * 2 + Math.min(bridgeCards, 4) + Math.floor(readableCards / 2) - riskyCount * 8 - duplicateTitles * 4));
 
     const payload = {
       caption: ["product", "review", "compare", "event"].includes(mode)
-        ? `${String(commercialBrief.disclosure || "광고·협찬 콘텐츠")}\n\n${String(result.caption || "")}${commercialBrief.purchaseLink ? `\n\n구매 안내: ${String(commercialBrief.purchaseLink)}` : ""}`
-        : String(result.caption || ""),
+        ? `${String((commercialBrief as { disclosure?: string }).disclosure || "광고·협찬 콘텐츠")}\n\n${result.caption}${(commercialBrief as { purchaseLink?: string }).purchaseLink ? `\n\n구매 안내: ${String((commercialBrief as { purchaseLink?: string }).purchaseLink)}` : ""}`
+        : result.caption,
       hashtags: cleanList(result.hashtags, 12),
       cards,
       quality: {
         score,
-        strengths: ["왜 중요한지 설명", "생활 속 실천 방법", "자주 하는 실수와 주의점"],
-        checks: ["제목에 대한 답", "카드 간 연결", "중복 내용", "과장 표현", "본문 깊이", "안전 문구"],
+        strengths: ["JSON 없는 안정적인 글 생성", "왜 중요한지 설명", "생활 속 실천 방법"],
+        checks: ["제목에 대한 답", "카드 간 연결", "중복 내용", "과장 표현", "본문 깊이", "대상 독자 일치"],
         metrics: {
-          hook: Math.max(70, Math.min(98, 82 + (cards[0].title.length >= 10 ? 6 : 0) + (cards[0].body.length >= 55 ? 6 : 0) - riskyCount * 6)),
+          hook: Math.max(70, Math.min(98, 82 + (cards[0].title.length >= 10 ? 6 : 0) + (cards[0].body.length >= 45 ? 6 : 0) - riskyCount * 6)),
           flow: Math.max(70, Math.min(98, 78 + bridgeCards * 3)),
           readability: Math.max(70, Math.min(98, 76 + readableCards * 3)),
           safety: Math.max(60, 98 - riskyCount * 14),
           uniqueness: Math.max(65, 98 - duplicateTitles * 12)
         },
-        improvements: score >= 88
-          ? ["정보형 캐러셀로 바로 제작해도 좋은 수준입니다."]
-          : ["카드별 AI 수정으로 이유와 실천 내용을 더 구체화하세요."]
+        improvements: score >= 88 ? ["정보형 캐러셀로 바로 제작해도 좋은 수준입니다."] : ["카드별 AI 수정으로 이유와 실천 내용을 더 구체화하세요."]
       },
       planSummary: {
         target: audience,
@@ -277,6 +307,7 @@ export async function POST(request: NextRequest) {
         keyFacts: [cards[1]?.title, cards[2]?.title, cards[4]?.title].filter(Boolean)
       }
     };
+
     if (!body.action) setCached(key, payload);
     return NextResponse.json(payload);
   } catch (error) {
