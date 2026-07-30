@@ -1,0 +1,7 @@
+V43 Ollama speed update
+- Planner and cards are generated in one compact JSON request.
+- Removed two sequential Ollama generations.
+- Reduced context/output/batch settings.
+- Kept model loaded for 30 minutes so repeated generations are faster.
+- Updated browser-to-local Ollama fallback with the same lightweight settings.
+- Existing publishing, Telegram, Instagram, reel and management features were not changed.

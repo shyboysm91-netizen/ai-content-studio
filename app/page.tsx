@@ -1216,8 +1216,8 @@ export default function Home() {
             prompt: prepared.prompt,
             stream: false,
             format: "json",
-            keep_alive: "5m",
-            options: { temperature: 0.25, num_ctx: 1536, num_predict: 620, num_batch: 32 }
+            keep_alive: "30m",
+            options: { temperature: 0.25, num_ctx: 1536, num_predict: 720, num_batch: 16, top_k: 20, top_p: 0.85 }
           })
         });
       } catch {
@@ -1248,11 +1248,11 @@ export default function Home() {
       return setMessage("제품명 또는 서비스명을 입력하세요.");
     }
     setLoading(true);
-    setMessage(isCommercialMode ? "제품 정보를 바탕으로 6장 콘텐츠를 생성하고 있습니다." : "6장 카드와 캡션을 가볍게 나누어 생성하고 있습니다.");
+    setMessage(isCommercialMode ? "제품 정보를 바탕으로 6장 콘텐츠를 빠르게 생성하고 있습니다." : "6장 카드뉴스를 빠르게 생성하고 있습니다.");
     try {
       const data = await generateForTopic(topic);
       setGenerated(data);
-      setMessage("콘텐츠와 3D 일러스트 구성이 완성되었습니다.");
+      setMessage("콘텐츠와 귀여운 캐릭터 구성이 완성되었습니다.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "오류가 발생했습니다.");
     } finally {
@@ -3201,7 +3201,7 @@ export default function Home() {
           </label>
 
           <label className="editorField">
-            3D 일러스트
+            귀여운 캐릭터
             <select
               value={card.visualKeyword || card.imageKeyword}
               onChange={(event) =>
@@ -3289,6 +3289,7 @@ export default function Home() {
     const visualKey = card.visualKeyword || card.imageKeyword;
     const baseVisual = VISUALS[visualKey] || VISUALS.checklist;
     const visual = { ...baseVisual, tone: card.designTone || baseVisual.tone };
+    const takeaway = card.details?.[0] || (card.body || "").split(/[.!?]/)[0]?.trim() || card.title;
 
     return (
       <div
@@ -3315,9 +3316,11 @@ export default function Home() {
               <small>{commercialBrief.brandName || brandName}</small>
             </div>
           ) : (
-            <div className="visual visual3d">
+            <div className="visual visual3d cuteMascot">
+              <span className="mascotBubble">헬시가 알려줘요!</span>
               {visual.secondary && <span className="sceneEmoji secondary">{visual.secondary}</span>}
               <span className="emoji mainEmoji">{visual.emoji}</span>
+              <span className="mascotFace" aria-hidden="true">•ᴗ•</span>
               {visual.tertiary && <span className="sceneEmoji tertiary">{visual.tertiary}</span>}
               <small>{visual.label}</small>
             </div>
@@ -3329,9 +3332,13 @@ export default function Home() {
           <h2>{card.title}</h2>
           <p>{card.body}</p>
           <CardContent card={card} index={index} />
+          <div className="takeawayBox">
+            <strong>💡 오늘의 핵심</strong>
+            <span>{takeaway}</span>
+          </div>
         </div>
 
-        {index === 0 && <div className="swipe">넘기면 음식·조리법·주의점까지 나옵니다 ↓</div>}
+        {index === 0 && <div className="swipe">넘기면 이유·원리·실천법까지 이어집니다 ↓</div>}
         {index > 0 && index < generated.cards.length - 1 && (
           <div className="progress">
             <span style={{ width: `${((index + 1) / generated.cards.length) * 100}%` }} />
@@ -3341,7 +3348,7 @@ export default function Home() {
           <div className="saveCta">저장해 두고 필요할 때 다시 확인하세요</div>
         )}
         <div className="sourceNote">
-          {card.sourceNote} · 자체 3D 일러스트
+          {card.sourceNote} · AI Health Note 캐릭터
         </div>
       </div>
     );
@@ -3583,7 +3590,7 @@ export default function Home() {
         </label>
 
         <button className="generate" onClick={generate} disabled={loading}>
-          {loading ? "AI가 콘텐츠를 만드는 중... 처음 실행은 1~3분 걸릴 수 있습니다." : isCommercialMode ? "광고 콘텐츠 자동 생성" : "AI 콘텐츠 자동 생성"}
+          {loading ? "AI가 6장 콘텐츠를 생성하는 중입니다..." : isCommercialMode ? "광고 콘텐츠 자동 생성" : "AI 콘텐츠 자동 생성"}
         </button>
         {message && <p className="message">{message}</p>}
       </section>

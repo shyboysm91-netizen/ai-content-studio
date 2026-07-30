@@ -2621,3 +2621,107 @@ input:focus { border-color:var(--accent); box-shadow:0 0 0 4px var(--soft); }
 .v40ConnectionCard.disconnected span{background:#fff0e8;color:#a54514}
 .v40ExecutingLabel{font-size:12px;font-weight:800;color:#5c6ac4;padding:8px 10px}
 @media(max-width:760px){.v40QueueHeaderButtons{justify-content:flex-start;width:100%}.v40ConnectionGrid{grid-template-columns:1fr}}
+
+/* V44: deeper information cards + cute AI Health Note mascot */
+.storyCard {
+  --mascot-cream: rgba(255,255,255,.92);
+}
+.storyCard .visualArea {
+  overflow: visible;
+}
+.cuteMascot {
+  position: relative;
+  border-radius: 34% 42% 38% 46%;
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(255,255,255,.72));
+  box-shadow: 0 18px 38px rgba(67, 80, 113, .14), inset 0 2px 0 rgba(255,255,255,.95);
+  transform: rotate(-1.5deg);
+}
+.cuteMascot::after {
+  content: "";
+  position: absolute;
+  inset: 9%;
+  border: 2px dashed rgba(255,255,255,.72);
+  border-radius: 38% 46% 42% 35%;
+  pointer-events: none;
+}
+.cuteMascot .mainEmoji {
+  filter: drop-shadow(0 12px 13px rgba(31,41,55,.16));
+  transform: scale(1.08);
+}
+.mascotBubble {
+  position: absolute;
+  top: -14px;
+  right: -25px;
+  z-index: 6;
+  padding: 8px 11px;
+  border: 2px solid rgba(255,255,255,.95);
+  border-radius: 16px 16px 16px 5px;
+  background: var(--mascot-cream);
+  color: var(--ink);
+  font-size: clamp(8px,.78vw,12px);
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(35,45,68,.12);
+  white-space: nowrap;
+}
+.mascotFace {
+  position: absolute;
+  left: 50%;
+  bottom: 22%;
+  z-index: 6;
+  transform: translateX(-50%);
+  padding: 2px 7px 3px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.88);
+  color: #70485c;
+  font-size: clamp(8px,.85vw,13px);
+  font-weight: 950;
+  letter-spacing: .04em;
+  box-shadow: 0 4px 10px rgba(75,54,73,.1);
+}
+.takeawayBox {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 11px 13px;
+  border: 1px solid rgba(255,255,255,.86);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--soft) 74%, white);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.96);
+}
+.takeawayBox strong {
+  color: var(--accent);
+  font-size: clamp(9px,.86vw,13px);
+  font-weight: 950;
+}
+.takeawayBox span {
+  color: var(--ink);
+  font-size: clamp(10px,.95vw,15px);
+  font-weight: 850;
+  line-height: 1.45;
+}
+.story-reason .copy p,
+.story-food .copy p,
+.story-howto .copy p,
+.story-warning .copy p {
+  line-height: 1.68;
+}
+.story-reason .detailList li,
+.story-food .detailList li,
+.story-howto .detailList li,
+.story-warning .detailList li,
+.story-closing .detailList li {
+  line-height: 1.45;
+}
+.story-step-5 {
+  background: radial-gradient(circle at 82% 12%,rgba(255,184,184,.28),transparent 25%), linear-gradient(165deg,#fff 0%,#fff4f4 100%);
+}
+.story-step-6 .takeawayBox {
+  background: color-mix(in srgb, var(--accent) 10%, white);
+  text-align: left;
+}
+.carouselExport.storyCard .takeawayBox { padding: 13px 15px; margin-top: 14px; }
+.carouselExport.storyCard .takeawayBox strong { font-size: 14px; }
+.carouselExport.storyCard .takeawayBox span { font-size: 16px; }
+.carouselExport.storyCard .mascotBubble { font-size: 11px; padding: 8px 11px; }
+.carouselExport.storyCard .mascotFace { font-size: 12px; }
